@@ -18,7 +18,7 @@ class NeuralNet:
         self.input_dim = input_dim
         self.output_dim = output_dim
         
-    def build_classifier(self,hn1,hn2,hn3):
+    def build_classifier(self,hn1,hn2):
         """create model and compile for training
         
         Args
@@ -34,22 +34,21 @@ class NeuralNet:
         model.add(Dense(units = hn1, activation='relu', input_dim = self.input_dim))
         # hidden layers
         model.add(Dense(hn2, activation='relu'))
-        model.add(Dense(hn3, activation='relu'))
         # softmax on outer layer to get probs
         model.add(Dense(units = self.output_dim, activation='softmax'))
         # Compile model
-        model.compile(loss='categorical_crossentropy', optimizer='adam',metrics=['accuracy'])
+        model.compile(loss='categorical_crossentropy', optimizer='adam')
         return model
     
     
-    def gridCV(self,parameters):
+    def gridCV(self,parameters,scoring):
         # perform grid search CV using KC wrapper function
         
         classifier = KerasClassifier(build_fn = self.build_classifier,verbose=0)
         
         gridsearch = GridSearchCV(estimator = classifier,
                          param_grid = parameters,
-                         scoring = 'accuracy',
+                         scoring = scoring,
                          cv = 10,
                          n_jobs = -1,
                          verbose =0)

@@ -13,94 +13,71 @@ def cumsum_reset(v):
     return result
 
 
-
-def feature_builder(team,matches,window):
-    # create features for each team
-    
-    # select team matches
-    team_df = matches[((matches['HomeTeam']==team)|(matches['AwayTeam']==team))]
-    
-    # sort chronologically
-    team_df = team_df.sort_values(['Date'])
-    
-    # get team name from team_df
-    team = (
-        team_df.groupby(['HomeTeam'])['HomeTeam']
-            .count().sort_values(ascending=False)
-            .index[0]
-           )
-    
-    # home matches df
-    home_df = team_df.loc[team_df['HomeTeam']==team]
-    
-    # home unbeaten
-    home_df.loc[(home_df['FTR']== 'H')|(home_df['FTR']=='D'),
-               'HU_counter'] = 1
-    
-    home_df['HU'] = cumsum_reset(home_df['HU_counter']).shift().fillna(0)
+def home_feature_build(df,window):
     
     # home goals scored and conceded rolling mean
-    home_df['HG_rm'] = home_df['FTHG'].rolling(window).mean().shift()
-    home_df['HC_rm'] = home_df['FTAG'].rolling(window).mean().shift()
+    df['HG_rm'] = df['FTHG'].rolling(window,min_periods=1).mean().shift()
+    df['HC_rm'] = df['FTAG'].rolling(window,min_periods=1).mean().shift()
     # GD rolling mean
-    home_df['HGD_rm'] = home_df['HG_rm']-home_df['HC_rm']
-    
-    # shot target and conversion %
-    home_df['HST%'] = round(home_df['HST']/home_df['HS'],2)  # home shot target %
-    home_df['HSTC%'] = round(home_df['AST']/home_df['AS'],2)  # home shot target conc %
-    home_df['HGS%'] = round(home_df['FTHG']/home_df['HS'],2) # home goals per shot
-    home_df['HGSC%'] = round(home_df['FTAG']/home_df['AS'],2) # home goals per shot conc
-    
+    df['HGD_rm'] = df['HG_rm']- df['HC_rm']
     # shot rolling means
-    home_df['HST%_rm'] = home_df['HST%'].rolling(window).mean().shift()
-    home_df['HSTC%_rm'] = home_df['HSTC%'].rolling(window).mean().shift()
-    home_df['HGS%_rm'] = home_df['HGS%'].rolling(window).mean().shift()
-    home_df['HGSC%_rm'] = home_df['HGSC%'].rolling(window).mean().shift()
+    df['HST%_rm'] = round(df['HST']/df['HS'],2).rolling(window,min_periods=1).mean().shift()
+    df['HSTC%_rm'] = round(df['AST']/df['AS'],2).rolling(window,min_periods=1).mean().shift()
+    df['HGS%_rm'] = round(df['FTHG']/df['HS'],2).rolling(window,min_periods=1).mean().shift()
+    df['HGSC%_rm'] = round(df['FTAG']/df['AS'],2).rolling(window,min_periods=1).mean().shift()
+    # points
+    df['HP'] = 0
+    df.loc[(df['FTR']=='H'),'HP'] = 3
+    df.loc[(df['FTR']=='D'),'HP'] = 1
+    df['HP'] = df['HP'].cumsum().shift().fillna(0)
     
-    
-    ##########################################################
-    
-    # away matches df
-    away_df = team_df.loc[team_df['AwayTeam']==team]
-    
-    # away unbeaten
-    away_df.loc[(away_df['FTR']=='A')|(away_df['FTR']=='D'),
-               'AU_counter'] = 1
-    
-    away_df['AU'] = cumsum_reset(away_df['AU_counter']).shift().fillna(0)
-    
+    return df
+
+
+def away_feature_build(df,window):
     # away goals scored and conceded rolling mean
-    away_df['AG_rm'] = away_df['FTAG'].rolling(5).mean().shift()
-    away_df['AC_rm'] = away_df['FTHG'].rolling(5).mean().shift()
+    df['AG_rm'] = df['FTAG'].rolling(window,min_periods=1).mean().shift()
+    df['AC_rm'] = df['FTHG'].rolling(window,min_periods=1).mean().shift()
     # GD rolling mean
-    away_df['AGD_rm'] = away_df['AG_rm']-away_df['AC_rm']
-        
-    # shot target and conversion %
-    away_df['AST%'] = round(away_df['AST']/away_df['AS'],2)  # home shot target %
-    away_df['ASTC%'] = round(away_df['HST']/away_df['HS'],2)  # home shot target conc %
-    away_df['AGS%'] = round(away_df['FTAG']/away_df['AS'],2) # home goals per shot
-    away_df['AGSC%'] = round(away_df['FTHG']/away_df['HS'],2) # home goals per shot conc
-    
+    df['AGD_rm'] = df['AG_rm']-df['AC_rm']
     # shot rolling means
-    away_df['AST%_rm'] = away_df['AST%'].rolling(window).mean().shift()
-    away_df['ASTC%_rm'] = away_df['ASTC%'].rolling(window).mean().shift()
-    away_df['AGS%_rm'] = away_df['AGS%'].rolling(window).mean().shift()
-    away_df['AGSC%_rm'] = away_df['AGSC%'].rolling(window).mean().shift()
+    df['AST%_rm'] = round(df['AST']/df['AS'],2).rolling(window,min_periods=1).mean().shift()
+    df['ASTC%_rm'] = round(df['HST']/df['HS'],2).rolling(window,min_periods=1).mean().shift()
+    df['AGS%_rm'] = round(df['FTAG']/df['AS'],2).rolling(window,min_periods=1).mean().shift()
+    df['AGSC%_rm'] = round(df['FTHG']/df['HS'],2).rolling(window,min_periods=1).mean().shift()
+    # points
+    df['AP'] = 0
+    df.loc[(df['FTR']=='A'),'AP'] = 3
+    df.loc[(df['FTR']=='D'),'AP'] = 1
+    df['AP'] = df['AP'].cumsum().shift().fillna(0)
     
-    ###############################################################
-    
-    # merge home and away dataframes
-    merged_df = home_df.merge(away_df,how='outer')
-    
-        
-    return merged_df
+    return df
 
 
-def combine_matches(df,fixed_feats):
-    # function to combine home and away matches in feature builder
+def master_feature_builder(seasons,window):
+    # seperate each season into individual team home and away dfs
+    list_teams = []
+    list_home_dfs = []
+    list_away_dfs = []
+    for i in range(len(seasons)):
+        list_teams.append(seasons[i]['HomeTeam'].unique())
+        for j in list_teams[i]:
+            list_home_dfs.append(seasons[i][(seasons[i]['HomeTeam']==j)])
+            list_away_dfs.append(seasons[i][(seasons[i]['AwayTeam']==j)])
     
-    summing_feats = [x for x in df.columns if x not in fixed_feats]
+    # calculate home and away features
+    home_list = [home_feature_build(df,window) for df in list_home_dfs]
+    away_list = [away_feature_build(df,window) for df in list_away_dfs]
+    all_homes = pd.concat(home_list)
+    all_aways = pd.concat(away_list)
+    all_matches = all_homes.append(all_aways).reset_index(drop=True)
+    
+    # combine home and away into dataframe
+    fixed_feats = ['Div','Date', 'HomeTeam', 'AwayTeam','FTR', 'FTHG', 'FTAG', 'HS','AS', 'HST', 'AST', 'A', 'D', 'H',
+                   'FTR_le','B365H','B365A','B365D']
+    summing_feats = ['HG_rm','HC_rm','HGD_rm','HST%_rm','HSTC%_rm','HGS%_rm','HGSC%_rm','AG_rm',
+                     'AC_rm','AGD_rm','AST%_rm','ASTC%_rm','AGS%_rm','AGSC%_rm','HP','AP']
     d = {key:'sum' for key in summing_feats}
-    comb_df = (df.groupby(fixed_feats,sort=False, as_index=False).agg(d))
+    comb_df = (all_matches.groupby(fixed_feats,sort=False, as_index=False).agg(d))
     
     return comb_df
